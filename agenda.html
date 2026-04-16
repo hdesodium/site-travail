@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agenda</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #f4f4f5;
+  color: #18181b;
+  min-height: 100vh;
+}
+
+nav {
+  display: flex;
+  background: #ffffff;
+  border-bottom: 1px solid #e4e4e7;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+nav button {
+  flex: 1;
+  padding: 14px;
+  border: none;
+  background: transparent;
+  color: #71717a;
+  font-size: 14px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+  font-family: inherit;
+}
+nav button.active {
+  color: #18181b;
+  border-bottom: 2px solid #18181b;
+  font-weight: 500;
+}
+
+.tab { display: none; padding: 20px; }
+.tab.activeTab { display: block; }
+
+.sync-bar {
+  font-size: 12px;
+  color: #a1a1aa;
+  text-align: right;
+  padding: 6px 20px 0;
+}
+.sync-bar.syncing { color: #18181b; }
+.sync-bar.error { color: #E24B4A; }
+
+/* LEGEND */
+.legend {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: #71717a;
+}
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+/* CALENDAR */
+.month-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.month-header h2 {
+  font-size: 16px;
+  font-weight: 500;
+  color: #18181b;
+  text-transform: capitalize;
+  flex: 1;
+}
+.month-nav {
+  background: none;
+  border: 1px solid #e4e4e7;
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #71717a;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.month-nav:hover { background: #f4f4f5; }
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+.day-label {
+  text-align: center;
+  font-size: 11px;
+  color: #71717a;
+  padding: 4px 0;
+  font-weight: 500;
+}
+.day {
+  background: #ffffff;
+  border: 1px solid #e4e4e7;
+  border-radius: 8px;
+  padding: 8px;
+  min-height: 110px;
+  transition: border-color 0.15s, background 0.15s;
+  position: relative;
+}
+.day:hover { border-color: #a1a1aa; }
+.day.today { border-color: #18181b; }
+.day.drag-over {
+  background: #f4f4f5;
+  border-color: #18181b;
+}
+.day-num {
+  font-size: 12px;
+  color: #71717a;
+  font-weight: 500;
+  margin-bottom: 3px;
+}
+.day.today .day-num {
+  color: #000000;
+  font-weight: 700;
+}
+
+/* EVENT CHIPS */
+.ev-chip {
+  border-radius: 4px;
+  font-size: 11px;
+  padding: 3px 6px;
+  margin-top: 3px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+  cursor: grab;
+  user-select: none;
+  transition: opacity 0.15s, transform 0.1s;
+}
+.ev-chip:active { cursor: grabbing; transform: scale(0.97); }
+.ev-chip.dragging { opacity: 0.4; }
+
+.ev-chip-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+.ev-del {
+  flex-shrink: 0;
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1;
+  opacity: 0.6;
+}
+.ev-del:hover { opacity: 1; color: #991b1b !important; }
+
+/* Priority colors */
+.prio-low    { background: #dcfce7; color: #166534; }
+.prio-medium { background: #fef9c3; color: #854d0e; }
+.prio-high   { background: #fee2e2; color: #991b1b; }
+.prio-none   { background: #e4e4e7; color: #18181b; }
+
+.add-ev-btn {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  font-size: 10px;
+  color: #a1a1aa;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+}
+.add-ev-btn:hover { color: #18181b; }
+
+/* TASKS */
+.task-input-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  max-width: 540px;
+}
+.task-input-row input[type=text] {
+  flex: 1;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid #e4e4e7;
+  background: #ffffff;
+  color: #18181b;
+  font-size: 14px;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.task-input-row input[type=text]:focus {
+  border-color: #18181b;
+  box-shadow: 0 0 0 3px #f4f4f5;
+}
+.task-input-row button.add-btn {
+  padding: 9px 16px;
+  border-radius: 8px;
+  border: none;
+  background: #18181b;
+  color: white;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.task-input-row button.add-btn:hover { background: #000000; }
+
+.tasks-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.task-col {
+  background: #ffffff;
+  border: 1px solid #e4e4e7;
+  border-radius: 12px;
+  padding: 16px;
+}
+.task-col h3 {
+  font-size: 13px;
+  font-weight: 500;
+  color: #71717a;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.col-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.task-card {
+  background: #f4f4f5;
+  border: 1px solid #e4e4e7;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.task-card input[type=checkbox] {
+  accent-color: #18181b;
+  width: 15px; height: 15px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.task-text { flex: 1; font-size: 14px; color: #18181b; }
+.task-text.done { text-decoration: line-through; color: #a1a1aa; }
+.task-del { font-size: 12px; color: #a1a1aa; cursor: pointer; flex-shrink: 0; }
+.task-del:hover { color: #E24B4A; }
+.empty-state { font-size: 13px; color: #a1a1aa; text-align: center; padding: 18px 0; }
+.task-note {
+  font-size: 12px;
+  color: #71717a;
+  font-style: italic;
+  margin-top: 4px;
+  padding: 4px 8px;
+  background: rgba(0,0,0,0.03);
+  border-radius: 5px;
+  border-left: 2px solid #e4e4e7;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.note-input {
+  width: 100%;
+  font-size: 12px;
+  font-family: inherit;
+  color: #18181b;
+  background: #f9f9f9;
+  border: 1px solid #e4e4e7;
+  border-radius: 6px;
+  padding: 6px 8px;
+  margin-top: 4px;
+  resize: none;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.note-input:focus { border-color: #18181b; }
+.note-btn {
+  font-size: 11px;
+  color: #a1a1aa;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 0;
+  font-family: inherit;
+  display: block;
+  margin-top: 3px;
+}
+.note-btn:hover { color: #18181b; }
+
+/* MODAL */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.25);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.modal {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e4e4e7;
+  padding: 20px;
+  width: 300px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+}
+.modal h3 { font-size: 15px; font-weight: 500; margin-bottom: 14px; color: #18181b; }
+.modal label { font-size: 12px; color: #71717a; display: block; margin-bottom: 4px; }
+.modal input[type=text], .modal input:not([type]) {
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid #e4e4e7;
+  background: #f4f4f5;
+  color: #18181b;
+  font-size: 14px;
+  outline: none;
+  margin-bottom: 12px;
+  font-family: inherit;
+  transition: border-color 0.15s;
+}
+.modal input[type=text]:focus, .modal input:not([type]):focus { border-color: #18181b; }
+
+.input-with-mic {
+  position: relative;
+  margin-bottom: 12px;
+}
+.input-with-mic input {
+  width: 100%;
+  padding: 9px 38px 9px 12px;
+  border-radius: 8px;
+  border: 1px solid #e4e4e7;
+  background: #f4f4f5;
+  color: #18181b;
+  font-size: 14px;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.15s;
+  margin-bottom: 0;
+}
+.input-with-mic input:focus { border-color: #18181b; }
+.input-with-mic input.listening {
+  border-color: #E24B4A;
+  background: #fff5f5;
+  box-shadow: 0 0 0 3px rgba(226,75,74,0.12);
+}
+
+.mic-btn-inline {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #a1a1aa;
+  border-radius: 4px;
+  transition: color 0.15s;
+}
+.mic-btn-inline:hover { color: #18181b; }
+.mic-btn-inline.active { color: #E24B4A; animation: pulse-mic 1s ease-in-out infinite; }
+
+.mic-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  border: 1px solid #e4e4e7;
+  background: #ffffff;
+  cursor: pointer;
+  color: #71717a;
+  flex-shrink: 0;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.mic-btn:hover { color: #18181b; border-color: #a1a1aa; }
+.mic-btn.active {
+  color: #E24B4A;
+  border-color: #E24B4A;
+  background: #fff5f5;
+  animation: pulse-mic 1s ease-in-out infinite;
+}
+
+@keyframes pulse-mic {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+.prio-picker {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.prio-btn {
+  flex: 1;
+  padding: 7px 4px;
+  border-radius: 7px;
+  border: 2px solid transparent;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 500;
+  transition: border-color 0.15s, transform 0.1s;
+}
+.prio-btn:active { transform: scale(0.96); }
+.prio-btn.p-none   { background: #e4e4e7; color: #18181b; }
+.prio-btn.p-low    { background: #dcfce7; color: #166534; }
+.prio-btn.p-medium { background: #fef9c3; color: #854d0e; }
+.prio-btn.p-high   { background: #fee2e2; color: #991b1b; }
+.prio-btn.selected { border-color: #18181b; }
+
+.modal-btns { display: flex; gap: 8px; }
+.modal-btns button {
+  flex: 1; padding: 9px;
+  border-radius: 8px; border: none;
+  font-size: 13px; cursor: pointer;
+  font-family: inherit; transition: background 0.15s;
+}
+.btn-save { background: #18181b; color: white; }
+.btn-save:hover { background: #000000; }
+.btn-cancel { background: #f4f4f5; color: #71717a; border: 1px solid #e4e4e7 !important; }
+.btn-cancel:hover { background: #e4e4e7; }
+
+@media (max-width: 700px) {
+  .tasks-layout { grid-template-columns: 1fr; }
+  .cal-grid { gap: 3px; }
+  .day { min-height: 70px; padding: 5px; }
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <button onclick="showTab('calendar')" id="btnCal" class="active">Calendrier</button>
+  <button onclick="showTab('tasks')" id="btnTasks">Tâches</button>
+</nav>
+
+<div id="syncBar" class="sync-bar">Connexion…</div>
+
+<div id="calendar" class="tab activeTab">
+  <div class="month-header">
+    <button class="month-nav" onclick="changeMonth(-1)">&#8249;</button>
+    <h2 id="monthTitle"></h2>
+    <button class="month-nav" onclick="changeMonth(1)">&#8250;</button>
+  </div>
+  <div class="legend">
+    <span style="font-size:12px;color:#71717a;font-weight:500;">Priorité :</span>
+    <div class="legend-item"><div class="legend-dot prio-none"></div>Aucune</div>
+    <div class="legend-item"><div class="legend-dot prio-low"></div>Basse</div>
+    <div class="legend-item"><div class="legend-dot prio-medium"></div>Moyenne</div>
+    <div class="legend-item"><div class="legend-dot prio-high"></div>Haute</div>
+  </div>
+  <div class="cal-grid" id="dayLabels"></div>
+  <div class="cal-grid" id="calGrid"></div>
+</div>
+
+<div id="tasks" class="tab">
+  <div class="task-input-row">
+    <input type="text" id="taskInput" placeholder="Nouvelle tâche…" onkeydown="if(event.key==='Enter')addTask()">
+    <button class="mic-btn" id="micTaskBtn" title="Saisie vocale" onclick="toggleMic('task')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+        <line x1="12" y1="19" x2="12" y2="23"/>
+        <line x1="8" y1="23" x2="16" y2="23"/>
+      </svg>
+    </button>
+    <select id="taskPrio" style="padding:9px 10px;border-radius:8px;border:1px solid #e4e4e7;background:#fff;color:#18181b;font-size:13px;font-family:inherit;outline:none;cursor:pointer;">
+      <option value="none">Priorité</option>
+      <option value="low">Basse</option>
+      <option value="medium">Moyenne</option>
+      <option value="high">Haute</option>
+    </select>
+    <button class="add-btn" onclick="addTask()">Ajouter</button>
+  </div>
+  <div class="tasks-layout">
+    <div class="task-col">
+      <h3><span class="col-dot" style="background:#18181b"></span>À faire</h3>
+      <div id="pendingList"></div>
+    </div>
+    <div class="task-col">
+      <h3><span class="col-dot" style="background:#1D9E75"></span>Terminées</h3>
+      <div id="doneList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ÉVÉNEMENT -->
+<div class="overlay" id="overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <h3 id="modalTitle">Ajouter un événement</h3>
+    <label>Nom</label>
+    <div class="input-with-mic">
+      <input id="evInput" placeholder="Nom de l'événement…" onkeydown="if(event.key==='Enter')saveEvent()">
+      <button class="mic-btn-inline" id="micEvBtn" title="Saisie vocale" onclick="toggleMic('event')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+          <line x1="12" y1="19" x2="12" y2="23"/>
+          <line x1="8" y1="23" x2="16" y2="23"/>
+        </svg>
+      </button>
+    </div>
+    <label>Horaire <span style="color:#a1a1aa;font-weight:400">(optionnel)</span></label>
+    <input id="evTime" type="time" style="margin-bottom:12px;">
+    <label>Priorité</label>
+    <div class="prio-picker">
+      <button class="prio-btn p-none selected"  onclick="selectPrio('none')"   id="p-none">Aucune</button>
+      <button class="prio-btn p-low"             onclick="selectPrio('low')"    id="p-low">Basse</button>
+      <button class="prio-btn p-medium"          onclick="selectPrio('medium')" id="p-medium">Moyenne</button>
+      <button class="prio-btn p-high"            onclick="selectPrio('high')"   id="p-high">Haute</button>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-save" onclick="saveEvent()">Enregistrer</button>
+      <button class="btn-cancel" onclick="closeModal()">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ÉDITION ÉVÉNEMENT -->
+<div class="overlay" id="editEvOverlay" onclick="if(event.target===this)closeEditEv()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <h3>Modifier l'événement</h3>
+    <label>Nom</label>
+    <div class="input-with-mic">
+      <input id="editEvInput" placeholder="Nom de l'événement…">
+      <button class="mic-btn-inline" id="micEditEvBtn" title="Saisie vocale" onclick="toggleMic('editEvent')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+          <line x1="12" y1="19" x2="12" y2="23"/>
+          <line x1="8" y1="23" x2="16" y2="23"/>
+        </svg>
+      </button>
+    </div>
+    <label>Horaire <span style="color:#a1a1aa;font-weight:400">(optionnel)</span></label>
+    <input id="editEvTime" type="time" style="margin-bottom:12px;">
+    <label>Priorité</label>
+    <div class="prio-picker">
+      <button class="prio-btn p-none" onclick="selectEditEvPrio('none')" id="ep-none">Aucune</button>
+      <button class="prio-btn p-low"  onclick="selectEditEvPrio('low')"  id="ep-low">Basse</button>
+      <button class="prio-btn p-medium" onclick="selectEditEvPrio('medium')" id="ep-medium">Moyenne</button>
+      <button class="prio-btn p-high" onclick="selectEditEvPrio('high')" id="ep-high">Haute</button>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-save" onclick="saveEditEv()">Enregistrer</button>
+      <button class="btn-cancel" onclick="closeEditEv()">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ÉDITION TÂCHE -->
+<div class="overlay" id="editTaskOverlay" onclick="if(event.target===this)closeEditTask()">
+  <div class="modal" onclick="event.stopPropagation()" style="width:320px;">
+    <h3>Modifier la tâche</h3>
+    <label>Nom</label>
+    <div class="input-with-mic">
+      <input id="editTaskInput" placeholder="Nom de la tâche…">
+      <button class="mic-btn-inline" id="micEditTaskBtn" title="Saisie vocale" onclick="toggleMic('editTask')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+          <line x1="12" y1="19" x2="12" y2="23"/>
+          <line x1="8" y1="23" x2="16" y2="23"/>
+        </svg>
+      </button>
+    </div>
+    <label>Priorité</label>
+    <div class="prio-picker">
+      <button class="prio-btn p-none" onclick="selectEditTaskPrio('none')" id="tp-none">Aucune</button>
+      <button class="prio-btn p-low"  onclick="selectEditTaskPrio('low')"  id="tp-low">Basse</button>
+      <button class="prio-btn p-medium" onclick="selectEditTaskPrio('medium')" id="tp-medium">Moyenne</button>
+      <button class="prio-btn p-high" onclick="selectEditTaskPrio('high')" id="tp-high">Haute</button>
+    </div>
+    <label id="editNoteLabel" style="margin-top:4px;">Note <span style="color:#a1a1aa;font-weight:400">(optionnel)</span></label>
+    <textarea id="editTaskNote" rows="3" class="note-input" style="margin-bottom:12px;" placeholder="Ajouter une note…"></textarea>
+    <div class="modal-btns">
+      <button class="btn-save" onclick="saveEditTask()">Enregistrer</button>
+      <button class="btn-cancel" onclick="closeEditTask()">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+// ✅ Ta config Firebase
+const firebaseConfig = {
+  apiKey: "AIzaSyDmhpIMjA67G1cvlIbTe6iAfCvbZ03UY64",
+  authDomain: "travail-site.firebaseapp.com",
+  projectId: "travail-site",
+  storageBucket: "travail-site.firebasestorage.app",
+  messagingSenderId: "1039409920931",
+  appId: "1:1039409920931:web:b8014a15033f6817ea7816"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const syncBar = document.getElementById('syncBar');
+
+let events = {};
+let tasks = [];
+let selDate = null;
+let selPrio = 'none';
+let dragData = null;
+
+const now = new Date();
+let viewYear = now.getFullYear();
+let viewMonth = now.getMonth();
+
+/* ---- Firebase ---- */
+onSnapshot(doc(db, "agenda", "data"), (snap) => {
+  if (snap.exists()) {
+    const d = snap.data();
+    events = d.events || {};
+    tasks = d.tasks || [];
+    Object.keys(events).forEach(k => {
+      events[k] = events[k].map(e => typeof e === 'string' ? { text: e, prio: 'none', time: null } : e);
+    });
+  } else {
+    events = {}; tasks = [];
+  }
+  syncBar.textContent = "Synchronisé";
+  syncBar.className = "sync-bar";
+  buildCalendar();
+  renderTasks();
+}, () => {
+  syncBar.textContent = "Erreur de connexion";
+  syncBar.className = "sync-bar error";
+});
+
+async function saveAll() {
+  syncBar.textContent = "Sauvegarde…";
+  syncBar.className = "sync-bar syncing";
+  try {
+    await setDoc(doc(db, "agenda", "data"), { events, tasks });
+    syncBar.textContent = "Synchronisé";
+    syncBar.className = "sync-bar";
+  } catch(e) {
+    syncBar.textContent = "Erreur de sauvegarde";
+    syncBar.className = "sync-bar error";
+  }
+}
+
+/* ---- Nav ---- */
+window.showTab = function(t) {
+  document.querySelectorAll('.tab').forEach(x => x.classList.remove('activeTab'));
+  document.getElementById(t).classList.add('activeTab');
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById(t === 'calendar' ? 'btnCal' : 'btnTasks').classList.add('active');
+};
+
+window.changeMonth = function(dir) {
+  viewMonth += dir;
+  if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+  if (viewMonth < 0)  { viewMonth = 11; viewYear--; }
+  buildCalendar();
+};
+
+/* ---- VOICE INPUT ---- */
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recognition = null;
+let activeMicTarget = null;
+
+const MIC_CONFIG = {
+  task:      { inputId: 'taskInput',     btnId: 'micTaskBtn' },
+  event:     { inputId: 'evInput',       btnId: 'micEvBtn' },
+  editEvent: { inputId: 'editEvInput',   btnId: 'micEditEvBtn' },
+  editTask:  { inputId: 'editTaskInput', btnId: 'micEditTaskBtn' },
+};
+
+function stopAllMics() {
+  if (recognition) { try { recognition.stop(); } catch(e) {} recognition = null; }
+  if (activeMicTarget) {
+    const cfg = MIC_CONFIG[activeMicTarget];
+    if (cfg) {
+      const btn = document.getElementById(cfg.btnId);
+      const inp = document.getElementById(cfg.inputId);
+      if (btn) btn.classList.remove('active');
+      if (inp) inp.classList.remove('listening');
+    }
+    activeMicTarget = null;
+  }
+}
+
+window.toggleMic = function(target) {
+  if (!SpeechRecognition) {
+    alert("La reconnaissance vocale n'est pas supportée par ce navigateur.\nEssaie Chrome ou Edge.");
+    return;
+  }
+  if (activeMicTarget === target) { stopAllMics(); return; }
+  stopAllMics();
+
+  const cfg = MIC_CONFIG[target];
+  if (!cfg) return;
+
+  const btn = document.getElementById(cfg.btnId);
+  const inp = document.getElementById(cfg.inputId);
+
+  recognition = new SpeechRecognition();
+  recognition.lang = 'fr-FR';
+  recognition.interimResults = true;
+  recognition.continuous = false;
+  recognition.maxAlternatives = 1;
+
+  activeMicTarget = target;
+  btn.classList.add('active');
+  inp.classList.add('listening');
+  inp.placeholder = '🎙 Parle maintenant…';
+
+  const baseValue = inp.value;
+
+  recognition.onresult = (e) => {
+    let interim = '', final = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const t = e.results[i][0].transcript;
+      if (e.results[i].isFinal) final += t;
+      else interim += t;
+    }
+    inp.value = (baseValue ? baseValue + ' ' : '') + (final || interim);
+    if (!baseValue) inp.value = inp.value.charAt(0).toUpperCase() + inp.value.slice(1);
+  };
+
+  recognition.onerror = (e) => {
+    if (e.error === 'not-allowed') alert("Accès au microphone refusé.");
+    stopMicUI(target, cfg, inp);
+  };
+
+  recognition.onend = () => stopMicUI(target, cfg, inp);
+  recognition.start();
+};
+
+function stopMicUI(target, cfg, inp) {
+  const btn = document.getElementById(cfg.btnId);
+  if (btn) btn.classList.remove('active');
+  if (inp) {
+    inp.classList.remove('listening');
+    const placeholders = {
+      taskInput: 'Nouvelle tâche…', evInput: "Nom de l'événement…",
+      editEvInput: "Nom de l'événement…", editTaskInput: 'Nom de la tâche…',
+    };
+    inp.placeholder = placeholders[cfg.inputId] || '';
+  }
+  if (activeMicTarget === target) activeMicTarget = null;
+  recognition = null;
+}
+
+function onModalClose() { stopAllMics(); }
+
+/* ---- Calendar ---- */
+function buildCalendar() {
+  const y = viewYear, m = viewMonth;
+  const todayD = new Date();
+
+  document.getElementById('monthTitle').textContent =
+    new Date(y, m, 1).toLocaleString('fr-FR', { month: 'long', year: 'numeric' });
+
+  const labels = document.getElementById('dayLabels');
+  labels.innerHTML = '';
+  ['Lu','Ma','Me','Je','Ve','Sa','Di'].forEach(d => {
+    const x = document.createElement('div');
+    x.className = 'day-label'; x.textContent = d;
+    labels.appendChild(x);
+  });
+
+  const grid = document.getElementById('calGrid');
+  grid.innerHTML = '';
+
+  const first = (new Date(y, m, 1).getDay() + 6) % 7;
+  const total = new Date(y, m + 1, 0).getDate();
+
+  for (let i = 0; i < first; i++) {
+    const x = document.createElement('div'); x.style.minHeight = '110px'; grid.appendChild(x);
+  }
+
+  for (let d = 1; d <= total; d++) {
+    const key = `${y}-${m+1}-${d}`;
+    const isToday = d === todayD.getDate() && m === todayD.getMonth() && y === todayD.getFullYear();
+
+    const div = document.createElement('div');
+    div.className = 'day' + (isToday ? ' today' : '');
+    div.dataset.key = key;
+
+    div.addEventListener('dragover', e => { e.preventDefault(); div.classList.add('drag-over'); });
+    div.addEventListener('dragleave', () => div.classList.remove('drag-over'));
+    div.addEventListener('drop', e => {
+      e.preventDefault();
+      div.classList.remove('drag-over');
+      if (!dragData || dragData.fromKey === key) return;
+      const ev = events[dragData.fromKey][dragData.index];
+      events[dragData.fromKey].splice(dragData.index, 1);
+      if (!events[dragData.fromKey].length) delete events[dragData.fromKey];
+      if (!events[key]) events[key] = [];
+      events[key].push(ev);
+      dragData = null;
+      buildCalendar(); saveAll();
+    });
+
+    const num = document.createElement('div');
+    num.className = 'day-num'; num.textContent = d;
+    div.appendChild(num);
+
+    if (events[key]) {
+      events[key].forEach((ev, i) => {
+        const chip = document.createElement('div');
+        chip.className = `ev-chip prio-${ev.prio || 'none'}`;
+        chip.draggable = true;
+
+        chip.addEventListener('dragstart', e => {
+          dragData = { fromKey: key, index: i };
+          chip.classList.add('dragging');
+          e.dataTransfer.effectAllowed = 'move';
+        });
+        chip.addEventListener('dragend', () => chip.classList.remove('dragging'));
+        chip.addEventListener('click', e => {
+          if (e.target.classList.contains('ev-del')) return;
+          openEditEv(key, i);
+        });
+
+        const inner = document.createElement('span');
+        inner.className = 'ev-chip-text';
+        inner.style.display = 'flex'; inner.style.alignItems = 'center';
+        inner.style.gap = '4px'; inner.style.overflow = 'hidden';
+        if (ev.time) {
+          const timeEl = document.createElement('span');
+          timeEl.textContent = ev.time;
+          timeEl.style.cssText = 'font-weight:700;flex-shrink:0;';
+          inner.appendChild(timeEl);
+        }
+        const txt = document.createElement('span');
+        txt.style.cssText = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+        txt.textContent = ev.text;
+        inner.appendChild(txt);
+
+        const del = document.createElement('span');
+        del.className = 'ev-del'; del.textContent = '✕';
+        del.onclick = e => {
+          e.stopPropagation();
+          events[key].splice(i, 1);
+          if (!events[key].length) delete events[key];
+          buildCalendar(); saveAll();
+        };
+
+        chip.appendChild(inner); chip.appendChild(del);
+        div.appendChild(chip);
+      });
+    }
+
+    const addBtn = document.createElement('button');
+    addBtn.className = 'add-ev-btn'; addBtn.textContent = '+ ajouter';
+    addBtn.onclick = e => {
+      e.stopPropagation();
+      selDate = key;
+      selectPrio('none');
+      document.getElementById('evInput').value = '';
+      document.getElementById('evTime').value = '';
+      document.getElementById('modalTitle').textContent = 'Ajouter un événement';
+      document.getElementById('overlay').style.display = 'flex';
+      setTimeout(() => document.getElementById('evInput').focus(), 50);
+    };
+    div.appendChild(addBtn);
+    grid.appendChild(div);
+  }
+}
+
+/* ---- Modal / Priority ---- */
+window.selectPrio = function(p) {
+  selPrio = p;
+  ['none','low','medium','high'].forEach(x =>
+    document.getElementById('p-'+x).classList.toggle('selected', x === p));
+};
+
+window.saveEvent = async function() {
+  const val = document.getElementById('evInput').value.trim();
+  if (!val) return;
+  if (!events[selDate]) events[selDate] = [];
+  const t = document.getElementById('evTime').value;
+  events[selDate].push({ text: val, prio: selPrio, time: t || null });
+  closeModal(); buildCalendar(); await saveAll();
+};
+
+window.closeModal = function() {
+  onModalClose();
+  document.getElementById('overlay').style.display = 'none';
+};
+
+/* ---- Tasks ---- */
+const PRIO_COLORS = { none: null, low: '#16a34a', medium: '#d97706', high: '#dc2626' };
+const PRIO_BG    = { none: 'transparent', low: 'rgba(22,163,74,0.10)', medium: 'rgba(217,119,6,0.10)', high: 'rgba(220,38,38,0.10)' };
+const PRIO_LABEL = { none: '', low: 'Basse', medium: 'Moyenne', high: 'Haute' };
+
+function renderTasks() {
+  const pending = document.getElementById('pendingList');
+  const done = document.getElementById('doneList');
+  pending.innerHTML = ''; done.innerHTML = '';
+  let hp = false, hd = false;
+
+  const prioOrder = { high: 0, medium: 1, low: 2, none: 3 };
+  const sorted = tasks.map((t, i) => ({ ...t, _i: i }));
+  const pendingTasks = sorted.filter(t => !t.done).sort((a, b) => prioOrder[a.prio||'none'] - prioOrder[b.prio||'none']);
+  const doneTasks = sorted.filter(t => t.done);
+
+  [...pendingTasks, ...doneTasks].forEach(t => {
+    const i = t._i;
+    const prio = t.prio || 'none';
+
+    const wrapper = document.createElement('div');
+    wrapper.style.marginBottom = '8px';
+
+    const div = document.createElement('div');
+    div.className = 'task-card';
+    div.style.marginBottom = '0';
+    div.style.background = PRIO_BG[prio];
+    div.style.borderColor = PRIO_COLORS[prio] || '#e4e4e7';
+
+    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = t.done;
+    cb.onchange = () => { tasks[i].done = cb.checked; renderTasks(); saveAll(); };
+
+    const span = document.createElement('span');
+    span.className = 'task-text' + (t.done ? ' done' : '');
+    span.textContent = t.text;
+    span.style.cursor = 'pointer';
+    span.title = 'Modifier';
+    span.onclick = () => openEditTask(i, t);
+
+    const prioTag = document.createElement('span');
+    prioTag.style.cssText = 'font-size:11px;color:#a1a1aa;flex-shrink:0;white-space:nowrap;';
+    prioTag.textContent = PRIO_LABEL[prio];
+
+    const del = document.createElement('span'); del.className = 'task-del'; del.textContent = '✕';
+    del.onclick = () => { tasks.splice(i, 1); renderTasks(); saveAll(); };
+
+    div.appendChild(cb); div.appendChild(span);
+    if (PRIO_LABEL[prio]) div.appendChild(prioTag);
+    div.appendChild(del);
+    wrapper.appendChild(div);
+
+    if (t.note) {
+      const noteEl = document.createElement('div');
+      noteEl.className = 'task-note';
+      noteEl.textContent = t.note;
+      wrapper.appendChild(noteEl);
+    }
+
+    if (t.done) { done.appendChild(wrapper); hd = true; }
+    else { pending.appendChild(wrapper); hp = true; }
+  });
+
+  if (!hp) { const e = document.createElement('div'); e.className = 'empty-state'; e.textContent = 'Aucune tâche en cours'; pending.appendChild(e); }
+  if (!hd) { const e = document.createElement('div'); e.className = 'empty-state'; e.textContent = 'Aucune tâche terminée'; done.appendChild(e); }
+}
+
+window.addTask = async function() {
+  const inp = document.getElementById('taskInput');
+  const v = inp.value.trim(); if (!v) return;
+  const prio = document.getElementById('taskPrio').value;
+  tasks.push({ text: v, done: false, prio }); inp.value = '';
+  stopAllMics();
+  renderTasks(); await saveAll();
+};
+
+/* ---- Edit Event ---- */
+let editEvKey = null, editEvIndex = null, editEvPrio = 'none';
+
+window.openEditEv = function(key, idx) {
+  editEvKey = key; editEvIndex = idx;
+  const ev = events[key][idx];
+  document.getElementById('editEvInput').value = ev.text;
+  document.getElementById('editEvTime').value = ev.time || '';
+  selectEditEvPrio(ev.prio || 'none');
+  document.getElementById('editEvOverlay').style.display = 'flex';
+  setTimeout(() => document.getElementById('editEvInput').focus(), 50);
+};
+
+window.selectEditEvPrio = function(p) {
+  editEvPrio = p;
+  ['none','low','medium','high'].forEach(x =>
+    document.getElementById('ep-'+x).classList.toggle('selected', x === p));
+};
+
+window.saveEditEv = async function() {
+  const val = document.getElementById('editEvInput').value.trim();
+  if (!val) return;
+  events[editEvKey][editEvIndex] = {
+    text: val, prio: editEvPrio,
+    time: document.getElementById('editEvTime').value || null
+  };
+  closeEditEv(); buildCalendar(); await saveAll();
+};
+
+window.closeEditEv = function() {
+  onModalClose();
+  document.getElementById('editEvOverlay').style.display = 'none';
+};
+
+/* ---- Edit Task ---- */
+let editTaskIndex = null, editTaskPrio = 'none';
+
+window.openEditTask = function(idx, t) {
+  editTaskIndex = idx;
+  document.getElementById('editTaskInput').value = t.text;
+  document.getElementById('editTaskNote').value = t.note || '';
+  selectEditTaskPrio(t.prio || 'none');
+  document.getElementById('editTaskOverlay').style.display = 'flex';
+  setTimeout(() => document.getElementById('editTaskInput').focus(), 50);
+};
+
+window.selectEditTaskPrio = function(p) {
+  editTaskPrio = p;
+  ['none','low','medium','high'].forEach(x =>
+    document.getElementById('tp-'+x).classList.toggle('selected', x === p));
+};
+
+window.saveEditTask = async function() {
+  const val = document.getElementById('editTaskInput').value.trim();
+  if (!val) return;
+  tasks[editTaskIndex].text = val;
+  tasks[editTaskIndex].prio = editTaskPrio;
+  tasks[editTaskIndex].note = document.getElementById('editTaskNote').value.trim() || null;
+  closeEditTask(); renderTasks(); await saveAll();
+};
+
+window.closeEditTask = function() {
+  onModalClose();
+  document.getElementById('editTaskOverlay').style.display = 'none';
+};
+
+buildCalendar();
+renderTasks();
+</script>
+</body>
+</html>
